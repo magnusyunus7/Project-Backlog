@@ -54,9 +54,27 @@ def list_games(
     sort: str = "playtime",
     limit: int = 20,
     include_removed: bool = False,
+    status: str | None = None,
 ) -> list[sqlite3.Row]:
-    """limit <= 0 means no limit."""
+    """limit <= 0 means no limit. status may be a label or "unlabeled"."""
     order = SORTS[sort]  # KeyError on unknown sort: only whitelisted SQL gets in
-    where = "" if include_removed else "WHERE in_library = 1"
-    sql = f"SELECT * FROM games {where} ORDER BY {order} LIMIT ?"
-    return conn.execute(sql, (limit if limit > 0 else -1,)).fetchall()
+    clauses: list[str] = []
+    params: list = []
+    if not include_removed:
+        clauses.append("g.in_library = 1")
+    if status == "unlabeled":
+        clauses.append("u.status IS NULL")
+    elif status:
+        clauses.append("u.status = ?")
+        params.append(status)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    sql = f"""
+        SELECT g.*, u.status
+        FROM games g
+        LEFT JOIN user_state u ON u.appid = g.appid AND u.source = g.source
+        {where}
+        ORDER BY {order}
+        LIMIT ?
+    """
+    params.append(limit if limit > 0 else -1)
+    return conn.execute(sql, params).fetchall()
