@@ -69,7 +69,7 @@ def list_games(
         params.append(status)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
-        SELECT g.*, u.status
+        SELECT g.*, u.status, u.updated_at AS status_updated_at
         FROM games g
         LEFT JOIN user_state u ON u.appid = g.appid AND u.source = g.source
         {where}
